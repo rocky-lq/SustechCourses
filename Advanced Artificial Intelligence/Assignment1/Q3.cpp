@@ -2,7 +2,6 @@
 // Created by Qi Luo on 2022/10/18.
 //
 #include <iostream>
-#include <random>
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
@@ -12,7 +11,7 @@ using namespace std;
 
 void show_edge_map(vector<vector<int>> edge_map, int n) {
     for (int i = 1; i <= n; i++) {
-        if (edge_map[i].size() == 0) continue;
+        if (edge_map[i].empty()) continue;
         cout << "City " << i << " has edges to : ";
         for (int j: edge_map[i]) {
             cout << j << ' ';
@@ -69,7 +68,6 @@ void construct_edge_map(vector<vector<int>> &edge_map, int n, vector<int> parent
     }
 
     for (auto &[key, vals]: mp) {
-
         for (auto &val: vals) {
             edge_map[key].push_back(val);
         }

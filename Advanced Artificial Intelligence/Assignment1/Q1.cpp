@@ -18,9 +18,9 @@ unordered_map<char, int> name_relation_map_q1 = {{'S', 1},
                                                  {'F', 7},
                                                  {'G', 8}};
 
-void show_path(vector<int> path, string title) {
+void show_path(const vector<int> &path, string &title) {
     cout << title << endl;
-    for (int i: path) {
+    for (auto i: path) {
         char name = 'S';
         for (auto &[key, val]: name_relation_map_q1) {
             if (val == i) {
@@ -67,7 +67,7 @@ int breath_first_search(vector<vector<int>> adjacency_matrix, int n, int start, 
     }
 
     int cost = calculate_cost(adjacency_matrix, path);
-    string title = "Depth-First Search, Cost is " + to_string(cost);
+    string title = "Breath-First Search, Cost is " + to_string(cost);
     show_path(path, title);
     return true;
 }
@@ -77,35 +77,38 @@ int depth_first_search(vector<vector<int>> adjacency_matrix, int n, int start, i
     vector<bool> visit(n + 1, false);
 
     vector<int> path = {start};
-    int min_cost = INT_MAX;
+//    int min_cost = INT_MAX;
     visit[start] = true;
 
     function<void(int, vector<int>)> dfs = [&](int cur, vector<int> tmp) {
         if (!tmp.empty() && tmp.back() == goal) {
-            // 这里可以打印所有的DFS输出。
-            int cost = calculate_cost(adjacency_matrix, tmp);
-            if (cost < min_cost) {
-                path = tmp;
-                min_cost = cost;
+            if (path.size() == 1) {
+                path = tmp; // 只保留最早的DFS结果。
             }
+//            添加比较之后可以找到最优的结果。
+//            int cost = calculate_cost(adjacency_matrix, tmp);
+//            if (cost < min_cost) {
+//                path = tmp;
+//                min_cost = cost;
+//            }
             return;
         }
-        // back track
+//        back track
         for (int i = 1; i <= n; i++) {
             if (!visit[i] && adjacency_matrix[cur][i] != -1) {
                 visit[i] = true;
-                cout << cur << ' ' << i << endl;
                 tmp.push_back(i);
                 dfs(i, tmp);
-//                tmp.pop_back();
-//                visit[i] = false;
+//                 回溯以搜索所有结果
+//                 tmp.pop_back();
+//                 visit[i] = false;
             }
         }
     };
 
     dfs(start, vector<int>{start});
 
-    // failure
+//    failure
     if (path.back() != goal) {
         return false;
     }
