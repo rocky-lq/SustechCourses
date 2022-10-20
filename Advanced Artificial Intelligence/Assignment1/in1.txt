@@ -1,0 +1,25 @@
+8 24
+S A 7
+S B 4
+S C 9
+A S 7
+A B 6
+A D 8
+B S 4
+B A 6
+B F 16
+C S 9
+C E 12
+D A 8
+D F 15
+D G 30
+E C 12
+E F 10
+E G 28
+F B 16
+F D 15
+F E 10
+F G 3
+G D 30
+G E 28
+G F 3

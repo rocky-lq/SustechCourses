@@ -1,0 +1,19 @@
+6 18
+O A 4
+O B 2
+A O 4
+A C 7
+A D 13
+A E 16
+B O 2
+B C 15
+B D 10
+C A 7
+C B 15
+C E 8
+D A 13
+D B 10
+D E 9
+E A 16
+E C 8
+E D 9
