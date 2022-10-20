@@ -4,4 +4,4 @@ project(CSP)
 set(CMAKE_CXX_STANDARD 14)
 
 add_executable(CSP
-        main.cpp)
+        csp.cpp)
