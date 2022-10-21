@@ -11,18 +11,19 @@ using namespace std;
 #define DOUBLE_MAX 0x3FFFFFFF
 #define eps 1e-6
 
-int n = 1000;
-int k = 100;
-double low = 0.0;
-double high = 100000.0;
+double threshold = 0.9;
+int n = 20;
+int k = 5;
+int low = 0;
+int high = 20;
 int epoch = 200;
 
 random_device rd;
 mt19937 gen(rd());
 // 随机数生成器，用于生成site坐标。
-uniform_real_distribution<double> dis_double(low, high);
+uniform_int_distribution<int> distribution_coordinates(low, high);
 // 随机数生成器，用于随机选择起点。
-uniform_int_distribution<int> dis_int(0, n - 1);
+uniform_int_distribution<int> distribution_index(0, n - 1);
 
 unordered_map<int, string> info = {
         {1, "选择的起始节点到其他所有节点的距离之和最小"},
@@ -32,17 +33,21 @@ unordered_map<int, string> info = {
 
 class Tuple {
 public:
-    double x, y;
+    int x, y;
 
     Tuple() {
         x = 0;
         y = 0;
     }
+
+    bool operator==(const Tuple other) {
+        return this->x == other.x && this->y == other.y;
+    }
 };
 
 
 double get_distance(Tuple s1, Tuple s2) {
-    return sqrt((s1.x - s2.x) * (s1.x - s2.x) + (s1.y - s2.y) * (s1.y - s2.y));
+    return sqrt(1.0 * (s1.x - s2.x) * (s1.x - s2.x) + (s1.y - s2.y) * (s1.y - s2.y));
 }
 
 int select_first_site(vector<Tuple> tuples, int tuple_num, int type) {
@@ -80,7 +85,7 @@ int select_first_site(vector<Tuple> tuples, int tuple_num, int type) {
     }
     if (type == 3) {
 //        随机选择起始节点
-        index = dis_int(gen);
+        index = distribution_index(gen);
     }
 
     return index;
@@ -177,7 +182,7 @@ vector<Tuple> distance_based_greedy_removal(vector<Tuple> sites, int tuple_num, 
     return centers;
 }
 
-vector<Tuple> greedy_inclusion(const vector<Tuple> &sites, int tuple_num, int center_num) {
+vector<Tuple> greedy_inclusion(const vector<Tuple> sites, int tuple_num, int center_num) {
     int start = select_first_site(sites, tuple_num, 2);
     vector<Tuple> centers = {sites[start]};
     set<int> selected = {start}; // 保存所有当前已经选择的center。
@@ -246,8 +251,8 @@ void compare_different_start_selection() {
 #endif
             vector<Tuple> sites(n);
             for (int i = 0; i < n; ++i) {
-                sites[i].x = dis_double(gen);
-                sites[i].y = dis_double(gen);
+                sites[i].x = distribution_coordinates(gen);
+                sites[i].y = distribution_coordinates(gen);
             }
 
             auto dis1 = csp(sites, n, k, 1);
@@ -274,45 +279,123 @@ void compare_different_start_selection() {
     }
 }
 
-void save() {
-    // 保存数据方便使用python进行可视化
+
+vector<int> convert_to_index(vector<Tuple> sites, vector<Tuple> centers) {
+    vector<int> index;
+    for (auto center: centers) {
+        for (int i = 0; i < sites.size(); i++) {
+            if (center == sites[i]) {
+                index.push_back(i);
+            }
+        }
+    }
+//    sort(index.begin(), index.end());
+    return index;
 }
 
-int main() {
-//    freopen("../data.txt", "w", stdout);
-    freopen("../in.txt", "r", stdin);
-    cin >> n >> k;
+void show_centers(vector<int> index) {
+    for (auto i: index) {
+        cout << i << ' ';
+    }
+    cout << endl;
+}
+
+void show_centers(const vector<Tuple> &centers) {
+    for (auto center: centers) {
+        cout << '(' << center.x << ' ' << center.y << ") ";
+    }
+    cout << endl;
+}
+
+// 比较两个centers的相似度，约接近1越好。
+double compare_two_centers(const vector<int> &index1, const vector<int> &index2) {
+    set<int> intersections;
+    for (int i = 0; i < index1.size(); ++i) {
+        intersections.insert(index1[i]);
+        intersections.insert(index2[i]);
+    }
+    return intersections.size() * 1.0 / (index1.size() + index2.size());
+}
+
+
+void save(const vector<Tuple> &sites, int n, int k, vector<vector<int>> centers, int cnt) {
+    freopen("../alg_compare_data.txt", "w", stdout);
+
+    // 保存配置
+    cout << n << ' ' << k << endl;
+
+    // 保存所有城市的下标, x坐标, y坐标。
+    for (int i = 0; i < n; i++) {
+        cout << i << ' ' << sites[i].x << ' ' << sites[i].y << endl;
+    }
+
+    // 依次保存四个算法的centers
+    for (auto &center: centers) {
+        for (int j = 0; j < center.size(); j++) {
+            cout << center[j] << (j == center.size() - 1 ? '\n' : ' ');
+        }
+    }
+
+    cout << cnt << endl;
+}
+
+
+// 返回当前最小的交集。
+bool create_samples() {
     vector<Tuple> sites(n);
+    set<pair<int, int>> coordinates; // 坐标去重
     for (int i = 0; i < n; ++i) {
-        cin >> sites[i].x;
-        cin >> sites[i].y;
+        int x = distribution_coordinates(gen);
+        int y = distribution_coordinates(gen);
+        while (coordinates.find(make_pair(x, y)) != coordinates.end()) {
+            x = distribution_coordinates(gen);
+            y = distribution_coordinates(gen);
+        }
+        sites[i].x = x;
+        sites[i].y = y;
+        coordinates.insert(make_pair(x, y));
     }
 
-    cout << "center_selection : " << endl;
-    auto centers = center_selection(sites, n, k, 2);
-    for (auto center: centers) {
-        cout << center.x << ' ' << center.y << endl;
+    auto alg1_centers = center_selection(sites, n, k, 2);
+    auto centers1 = convert_to_index(sites, alg1_centers);
+
+    auto alg2_centers = distance_based_greedy_removal(sites, n, k);
+    auto centers2 = convert_to_index(sites, alg2_centers);
+
+    auto alg3_centers = greedy_inclusion(sites, n, k);
+    auto centers3 = convert_to_index(sites, alg3_centers);
+
+    auto alg4_centers = greedy_removal(sites, n, k);
+    auto centers4 = convert_to_index(sites, alg4_centers);
+
+    vector<vector<int>> centers = {centers1, centers2, centers3, centers4};
+
+    bool ok = false;
+    set<int> cnt;
+    for (int i = 0; i < centers.size(); i++) {
+        for (int j = 0; j < centers[i].size(); j++) {
+            cnt.insert(centers[i][j]);
+        }
+    }
+    if (cnt.size() >= n - 1) {
+        ok = true;
     }
 
-    cout << "distance_based_greedy_removal : " << endl;
-    centers = distance_based_greedy_removal(sites, n, k);
-    for (auto center: centers) {
-        cout << center.x << ' ' << center.y << endl;
+    if (ok) {
+        save(sites, n, k, centers, cnt.size());
     }
+    return ok;
+}
 
-    cout << "greedy_inclusion : " << endl;
-    centers = greedy_inclusion(sites, n, k);
 
-    for (auto center: centers) {
-        cout << center.x << ' ' << center.y << endl;
-    }
-
-    cout << "greedy_removal : " << endl;
-    centers = greedy_removal(sites, n, k);
-    for (auto center: centers) {
-        cout << center.x << ' ' << center.y << endl;
+int main() {
+    int cnt = 0;
+    while (++cnt) {
+        auto ok = create_samples();
+        cout << cnt << endl;
+        if (ok) break;
     }
 
 //    compare_different_start_selection();
-
+    return 0;
 }
