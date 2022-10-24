@@ -22,7 +22,7 @@ def show_centers(tuples, centers, ax, title):
         ax.scatter(tuples[centers[i]].x, tuples[centers[i]].y, s=80, lw=0, cmap='RdYlGn', color='r')
         ax.annotate(i + 1, xy=(tuples[centers[i]].x - 0.5, tuples[centers[i]].y + 0.5))
 
-    ax.axis(xmin=-5, xmax=25, ymin=-5, ymax=25)
+    ax.axis(xmin=0, xmax=10, ymin=0, ymax=10)
     ax.grid(True)
     ax.set_title(title)
     ax.set_aspect(1)

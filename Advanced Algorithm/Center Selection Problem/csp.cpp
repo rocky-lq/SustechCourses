@@ -15,7 +15,7 @@ double threshold = 0.9;
 int n = 20;
 int k = 5;
 int low = 0;
-int high = 20;
+int high = 10;
 int epoch = 200;
 
 random_device rd;
@@ -377,7 +377,7 @@ bool create_samples() {
             cnt.insert(centers[i][j]);
         }
     }
-    if (cnt.size() >= n - 1) {
+    if (cnt.size() >= n - 2) {
         ok = true;
     }
 

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <set>
+#include <vector>
 
 using namespace std;
 
