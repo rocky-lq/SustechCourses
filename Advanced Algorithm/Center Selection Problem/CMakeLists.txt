@@ -4,4 +4,4 @@ project(CSP)
 set(CMAKE_CXX_STANDARD 14)
 
 add_executable(CSP
-        csp.cpp)
+        csp.cpp k_means.cpp k_means.h homework7.cpp)
