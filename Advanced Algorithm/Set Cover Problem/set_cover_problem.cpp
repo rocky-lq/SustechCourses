@@ -68,7 +68,7 @@ pair<vector<int>, float> greedy(vector<Machine> machines) {
                 }
             }
         }
-
+        // Update parameters
         if (index == -1) {
             break;
         }
