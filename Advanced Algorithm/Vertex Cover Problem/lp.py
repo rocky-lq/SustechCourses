@@ -42,7 +42,7 @@ def sample_2():
 
 
 def sample_3():
-    A = np.array([1, 1, 2])
+    A = np.array([0, 0, 2])
     B = np.array([[1, 1, 1], [-1, -1, -1], [0, 0, 1]])
     C = np.array([2, -1, 2]).transpose()
 
@@ -79,7 +79,7 @@ def solve(data, title):
 
 # Mehod = 'highs-ipm', 'highs-ds' None
 if __name__ == '__main__':
-    method = 'highs-ipm'
+    method = 'highs-ds'
     print(method)
     print()
     # data = io.loadmat('instance_small.mat')
