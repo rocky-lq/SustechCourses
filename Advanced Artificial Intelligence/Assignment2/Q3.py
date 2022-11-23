@@ -48,5 +48,5 @@ dot_data = tree.export_graphviz(clf, out_file=None,
                                 filled=True, rounded=True,
                                 special_characters=True)
 
-with open("Q3.gv", 'w') as f:
+with open("Q3.dot", 'w') as f:
     f.write(dot_data)
