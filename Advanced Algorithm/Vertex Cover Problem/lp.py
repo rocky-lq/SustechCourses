@@ -77,11 +77,29 @@ def solve(data, title):
     ...
 
 
+def sample_test():
+    A = np.array([1, 1, 1, 1, 1])
+    B = np.array([[-1, -1, 0, 0, 0], [0, -1, -1, 0, 0], [0, 0, -1, -1, 0], [0, 0, 0, -1, -1], [-1, 0, 0, 0, -1]])
+    C = np.array([-1, -1, -1, -1, -1]).transpose()
+
+    m, n = B.shape
+    bounds = np.array([[0, 1] for _ in range(n)])
+    start_time = time.time()
+    res = linprog(np.dot(A, -1), A_ub=B, b_ub=C, A_eq=None, b_eq=None, method=method, bounds=bounds)
+    end_time = time.time()
+    print('sample_test')
+    print(res.x)
+    print(f'result: {np.dot(A, res.x)}')
+    print("cost time: {:6f}s".format(end_time - start_time))
+    print()
+    ...
+
+
 # Mehod = 'highs-ipm', 'highs-ds' None
 if __name__ == '__main__':
-    method = 'highs-ds'
-    print(method)
-    print()
+    method = 'highs-ipm'
+    # print(method)
+    # print()
     # data = io.loadmat('instance_small.mat')
     # solve(data, 'instance_small')
     #
@@ -90,7 +108,8 @@ if __name__ == '__main__':
     #
     # data = io.loadmat('instance_large.mat')
     # solve(data, 'instance_large')
-    sample_1()
-    sample_2()
-    sample_3()
+    # sample_1()
+    # sample_2()
+    # sample_3()
+    sample_test()
     ...
