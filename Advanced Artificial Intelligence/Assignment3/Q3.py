@@ -1,5 +1,7 @@
 import numpy as np
+from sklearn.ensemble import VotingClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
@@ -23,31 +25,19 @@ def datasets():
     return x_train, y_train, x_test, None
 
 
-def ensemble_models():
-    # 用emsemble方法训练模型
-    # 读取预测结果
-    y_pred1 = np.loadtxt('diabetes/predict_NeuralNetwork.txt')
-    y_pred2 = np.loadtxt('diabetes/predict_KNN.txt')
-    y_pred3 = np.loadtxt('diabetes/predict_SVM.txt')
-    y_pred4 = np.loadtxt('diabetes/predict_DecisionTree.txt')
-    y_pred5 = np.loadtxt('diabetes/predict_LogisticRegression.txt')
-
-    # 将预测结果进行投票
-    y_pred = np.zeros(y_pred1.shape)
-    for i in range(y_pred1.shape[0]):
-        y_pred[i] = np.argmax(np.bincount([y_pred1[i], y_pred2[i], y_pred3[i], y_pred4[i], y_pred5[i]]))
-
-    # 将预测结果保存到文件
-    np.savetxt('diabetes/predict_ensemble.txt', y_pred, fmt='%d')
-
-
 def neural_network():
     # 用神经网络训练模型
-    model = MLPClassifier()
+    model = MLPClassifier(max_iter=10000, hidden_layer_sizes=(32, 64, 32))
     model.fit(x_train, y_train)
 
     # 训练集的准确率
     print('neural_network train accuracy: ', model.score(x_train, y_train))
+
+    # val集的准确率
+    print('neural_network val accuracy: ', model.score(x_val, y_val))
+
+    # 换行
+    print()
 
     # 用训练好的模型预测
     y_pred = model.predict(x_test)
@@ -64,6 +54,12 @@ def nearest_neighbor_classifier():
     # 训练集的准确率
     print('nearest_neighbor_classifier train accuracy: ', model.score(x_train, y_train))
 
+    # val集的准确率
+    print('nearest_neighbor_classifier val accuracy: ', model.score(x_val, y_val))
+
+    # 换行
+    print()
+
     # 用训练好的模型预测
     y_pred = model.predict(x_test)
 
@@ -79,6 +75,12 @@ def support_vector_machine():
     # 训练集的准确率
     print('support_vector_machine train accuracy: ', model.score(x_train, y_train))
 
+    # val集的准确率
+    print('support_vector_machine val accuracy: ', model.score(x_val, y_val))
+
+    # 换行
+    print()
+
     # 用训练好的模型预测
     y_pred = model.predict(x_test)
 
@@ -88,11 +90,17 @@ def support_vector_machine():
 
 def decision_tree():
     # 用决策树训练模型
-    model = DecisionTreeClassifier()
+    model = DecisionTreeClassifier(max_depth=5)
     model.fit(x_train, y_train)
 
     # 训练集的准确率
     print('decision_tree train accuracy: ', model.score(x_train, y_train))
+
+    # val集的准确率
+    print('decision_tree val accuracy: ', model.score(x_val, y_val))
+
+    # 换行
+    print()
 
     # 用训练好的模型预测
     y_pred = model.predict(x_test)
@@ -109,6 +117,12 @@ def regression():
     # 训练集的准确率
     print('regression train accuracy: ', model.score(x_train, y_train))
 
+    # val集的准确率
+    print('regression val accuracy: ', model.score(x_val, y_val))
+
+    # 换行
+    print()
+
     # 用训练好的模型预测
     y_pred = model.predict(x_test)
 
@@ -116,12 +130,45 @@ def regression():
     np.savetxt('diabetes/predict_LogisticRegression.txt', y_pred, fmt='%d')
 
 
+# 使用上述5个模型做集成学习，使用投票的方式得到最终的结果
+def ensemble():
+    # 用集成学习的方式训练模型
+    model1 = MLPClassifier(max_iter=1000, hidden_layer_sizes=(32, 64, 32))
+    model2 = KNeighborsClassifier()
+    model3 = SVC()
+    model4 = DecisionTreeClassifier(max_depth=5)
+    model5 = LogisticRegression(max_iter=10000)
+    model = VotingClassifier(estimators=[('neural_network', model1), ('nearest_neighbor_classifier', model2),
+                                         ('support_vector_machine', model3), ('decision_tree', model4),
+                                         ('regression', model5)], voting='hard')
+    model.fit(x_train, y_train)
+
+    # 训练集的准确率
+    print('ensemble train accuracy: ', model.score(x_train, y_train))
+
+    # val集的准确率
+    print('ensemble val accuracy: ', model.score(x_val, y_val))
+
+    # 换行
+    print()
+
+    # 用训练好的模型预测
+    y_pred = model.predict(x_test)
+
+    # 将预测结果保存到文件
+    np.savetxt('diabetes/predict_ensemble.txt', y_pred, fmt='%d')
+
+
 # main调取datasets函数
 if __name__ == '__main__':
     x_train, y_train, x_test, _ = datasets()
+
+    # 将训练集分为训练集和验证集
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.3, random_state=1)
+
     regression()
     decision_tree()
     support_vector_machine()
     nearest_neighbor_classifier()
     neural_network()
-    ensemble_models()
+    ensemble()
