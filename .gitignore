@@ -2,3 +2,6 @@
 *cmake-build-debug/
 *.checkpoint.ipynb
 .DS_Store
+*.wav
+*.flac
+*__pycache__*
