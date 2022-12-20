@@ -3,67 +3,106 @@ import random
 
 import torch
 import torchaudio
+from torchaudio import transforms
 
-# 当前文件的目录
-project_dir = os.path.abspath(os.path.dirname(__file__))
+from config import TRAIN_DATA_DIR, BATCH_SIZE, GPU_NUMS, SAMPLE_RATE
 
-train_data_path = os.path.join(project_dir, 'data', 'LibriSpeech-SI', 'train')
-# print(train_data_path)
-# train_labels是spk001-spk250的列表
-train_labels = os.listdir(train_data_path)
-# 去除不以spk开头的
+train_labels = os.listdir(TRAIN_DATA_DIR)
+
+# Remove the ones that do not start with spk
 train_labels = [x for x in train_labels if x.startswith('spk')]
 train_labels.sort()
-# device
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print('device:', device)
 
-# 定义train_labels到index的映射
-label_to_index = {label: index for index, label in enumerate(train_labels)}
+# Define the mapping of train_labels to index
+label_to_index = {label: index + 1 for index, label in enumerate(train_labels)}
 
 
-def normalize(tensor):
-    tensor_minusmean = tensor - tensor.mean()
-    return tensor_minusmean / tensor_minusmean.max()
+# load an audio file, resample it to 16kHz, and return the waveform and sample rate
+def open(audio_file, sample_rate):
+    sig, sr = torchaudio.load(audio_file)
+
+    if sr == sample_rate:
+        return sig, sr
+
+    # Resample the signal
+    sig = torchaudio.transforms.Resample(sr, sample_rate)(sig)
+    return sig, sample_rate
 
 
-# 规则化waveform，如果长度大于200000，随机截取200000，如果小于200000，随机在前后补0
-def regular_waveform(waveform):
-    max_length = 200000
-    rows, len = waveform.shape
-    if len > max_length:
-        start = random.randint(0, len - max_length)
-        waveform = waveform[:, start:start + max_length]
-    elif len < max_length:
-        pad_begin_len = random.randint(0, max_length - len)
-        pad_end_len = max_length - len - pad_begin_len
-        pad_begin = torch.zeros((rows, pad_begin_len))
-        pad_end = torch.zeros((rows, pad_end_len))
-        waveform = torch.cat((pad_begin, waveform, pad_end), 1)
-    return waveform
+def pad_trunc(aud, max_ms):
+    sig, sr = aud
+    num_rows, sig_len = sig.shape
+    max_len = sr // 1000 * max_ms
+
+    if sig_len > max_len:
+        # Truncate the signal to the given length
+        start = random.randint(0, sig_len - max_len)
+        sig = sig[:, start:start + max_len]
+
+    elif sig_len < max_len:
+        # Length of padding to add at the beginning and end of the signal
+        pad_begin_len = random.randint(0, max_len - sig_len)
+        pad_end_len = max_len - sig_len - pad_begin_len
+
+        # Pad with 0s
+        pad_begin = torch.zeros((num_rows, pad_begin_len))
+        pad_end = torch.zeros((num_rows, pad_end_len))
+
+        sig = torch.cat((pad_begin, sig, pad_end), 1)
+
+    return sig, sr
+
+
+def time_shift(aud, shift_limit):
+    sig, sr = aud
+    _, sig_len = sig.shape
+    shift_amt = int(random.random() * shift_limit * sig_len)
+    return sig.roll(shift_amt), sr
+
+
+def spectro_gram(aud, n_mels=64, n_fft=1024, hop_len=None):
+    sig, sr = aud
+    top_db = 80
+
+    # spec has shape [channel, n_mels, time], where channel is mono, stereo etc
+    spec = transforms.MelSpectrogram(sr, n_fft=n_fft, hop_length=hop_len, n_mels=n_mels)(sig)
+
+    # Convert to decibels
+    spec = transforms.AmplitudeToDB(top_db=top_db)(spec)
+    return spec
 
 
 class AudioDataset(torch.utils.data.Dataset):
-    def __init__(self, root, all_labels, type='train'):
+    def __init__(self, root, all_labels, sample_rate, type='train'):
         self.root = root
         self.type = type
         self.all_labels = all_labels
         self.set = []
-        self.max_wave_time = 0
+        self.duration = 18750
+        self.sr = sample_rate
+        self.channel = 1
+        self.shift_pct = 0.4
 
+        index = 0
         for root, dirs, files in os.walk(self.root):
             target = root.split(os.sep)[-1]
             print(target)
-            if target == 'spk010':
-                break
+            index += 1
+            # if index >= 10:
+            #     break
             if target in self.all_labels:
                 for file in files:
                     # audio_data = torchaudio.load(os.path.join(root, file))
-                    waveform, sample_rate = torchaudio.load(os.path.join(root, file), normalize=True)
-                    waveform = regular_waveform(waveform)
+                    audio = open(os.path.join(root, file), self.sr)
+
+                    pad_audio = pad_trunc(audio, self.duration)
+
+                    shift_audio = time_shift(pad_audio, self.shift_pct)
+                    # convert to spectrogram
+                    spectrogram = spectro_gram(shift_audio, n_mels=64, n_fft=1024, hop_len=None)
 
                     information = {
-                        'audio': waveform,
+                        'waveform': spectrogram,
                         'target': label_to_index[target]
                     }
                     self.set.append(information)
@@ -75,19 +114,14 @@ class AudioDataset(torch.utils.data.Dataset):
         return self.set[idx]
 
 
-def load_data():
-    train_set = AudioDataset(train_data_path, train_labels, 'train')
-    print('max_wave_time:', train_set.max_wave_time)
+def load_training_data():
+    train_set = AudioDataset(TRAIN_DATA_DIR, train_labels, SAMPLE_RATE, 'train')
     # 將train_set分为训练集和验证集
-    train_size = int(0.7 * len(train_set))
+    train_size = int(0.8 * len(train_set))
     val_size = len(train_set) - train_size
     train_set, val_set = torch.utils.data.random_split(train_set, [train_size, val_size])
 
-    batch_size = 256
-    train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=batch_size, shuffle=True)
+    batch_size = BATCH_SIZE * GPU_NUMS
+    train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True, num_workers=8)
+    val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=batch_size, shuffle=True, num_workers=8)
     return train_loader, val_loader
-
-# 采样率为16000
-# waveform, sample_rate = torchaudio.load(os.path.join(train_data_path, 'spk001', 'spk001_003.flac'))
-# print(waveform, sample_rate)
