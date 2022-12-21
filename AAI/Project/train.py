@@ -87,12 +87,25 @@ def training(model, train_dl, val_dl, num_epochs=100):
     # plot the loss and accuracy
     plt.plot(train_acc_list, label='accuracy')
     plt.plot(train_loss_list, label='loss')
-    plt.plot(val_acc_list, label='val accuracy')
+
     plt.legend()
     plt.show()
     # save the figure
     plt.savefig('train.png')
 
+    # plot the loss and accuracy
+    plt.plot(val_acc_list, label='val_accuracy')
+    plt.plot(val_loss_list, label='val_loss')
+
+    plt.legend()
+    plt.show()
+    # save the figure
+    plt.savefig('val.png')
+
+    print(train_acc_list)
+    print(train_loss_list)
+    print(val_acc_list)
+    print(val_loss_list)
     # save the model
     torch.save(model.state_dict(), 'model.pth')
     print('Finished Training')

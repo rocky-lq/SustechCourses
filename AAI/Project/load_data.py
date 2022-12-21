@@ -5,7 +5,7 @@ import torch
 import torchaudio
 from torchaudio import transforms
 
-from config import TRAIN_DATA_DIR, BATCH_SIZE, GPU_NUMS, SAMPLE_RATE
+from config import TRAIN_DATA_DIR, BATCH_SIZE, GPU_NUMS, SAMPLE_RATE, DURATION, SHIFT_PCT, N_MELS, N_FFT
 
 train_labels = os.listdir(TRAIN_DATA_DIR)
 
@@ -14,11 +14,16 @@ train_labels = [x for x in train_labels if x.startswith('spk')]
 train_labels.sort()
 
 # Define the mapping of train_labels to index
-label_to_index = {label: index + 1 for index, label in enumerate(train_labels)}
+label_to_index = {label: index for index, label in enumerate(train_labels)}
+index_to_label = {index: label for label, index in label_to_index.items()}
 
 
 # load an audio file, resample it to 16kHz, and return the waveform and sample rate
 def open(audio_file, sample_rate):
+    # if file not endwith flac or wav, return None
+    if not audio_file.endswith('.flac') and not audio_file.endswith('.wav'):
+        exit(0)
+
     sig, sr = torchaudio.load(audio_file)
 
     if sr == sample_rate:
@@ -69,7 +74,17 @@ def spectro_gram(aud, n_mels=64, n_fft=1024, hop_len=None):
 
     # Convert to decibels
     spec = transforms.AmplitudeToDB(top_db=top_db)(spec)
-    return spec
+    return spec, sr
+
+
+def pre_processing_audio(audio):
+    pad_audio = pad_trunc(audio, DURATION)
+
+    shift_audio = time_shift(pad_audio, SHIFT_PCT)
+    # convert to spectrogram
+    spectrogram = spectro_gram(shift_audio, n_mels=N_MELS, n_fft=N_FFT, hop_len=None)
+
+    return spectrogram
 
 
 class AudioDataset(torch.utils.data.Dataset):
@@ -78,28 +93,17 @@ class AudioDataset(torch.utils.data.Dataset):
         self.type = type
         self.all_labels = all_labels
         self.set = []
-        self.duration = 18750
         self.sr = sample_rate
-        self.channel = 1
-        self.shift_pct = 0.4
 
-        index = 0
         for root, dirs, files in os.walk(self.root):
             target = root.split(os.sep)[-1]
             print(target)
-            index += 1
-            # if index >= 10:
-            #     break
             if target in self.all_labels:
                 for file in files:
-                    # audio_data = torchaudio.load(os.path.join(root, file))
                     audio = open(os.path.join(root, file), self.sr)
 
-                    pad_audio = pad_trunc(audio, self.duration)
-
-                    shift_audio = time_shift(pad_audio, self.shift_pct)
                     # convert to spectrogram
-                    spectrogram = spectro_gram(shift_audio, n_mels=64, n_fft=1024, hop_len=None)
+                    spectrogram, _ = pre_processing_audio(audio)
 
                     information = {
                         'waveform': spectrogram,
@@ -125,3 +129,10 @@ def load_training_data():
     train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True, num_workers=8)
     val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=batch_size, shuffle=True, num_workers=8)
     return train_loader, val_loader
+
+
+def load_test_data():
+    test_set = AudioDataset(TRAIN_DATA_DIR, train_labels, SAMPLE_RATE, 'test')
+    batch_size = BATCH_SIZE * GPU_NUMS
+    test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=batch_size, shuffle=True, num_workers=8)
+    return test_loader
