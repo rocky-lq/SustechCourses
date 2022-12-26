@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 
@@ -17,10 +18,13 @@ train_labels.sort()
 label_to_index = {label: index for index, label in enumerate(train_labels)}
 index_to_label = {index: label for label, index in label_to_index.items()}
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(format='%(asctime)12s - %(levelname)s - %(message)s', level=logging.INFO)
+
 
 # load an audio file, resample it to 16kHz, and return the waveform and sample rate
-def open(audio_file, sample_rate):
-    # if file not endwith flac or wav, return None
+def open_audio_file(audio_file, sample_rate):
+    # if file not endswith flac or wav, return None
     if not audio_file.endswith('.flac') and not audio_file.endswith('.wav'):
         exit(0)
 
@@ -78,9 +82,12 @@ def spectro_gram(aud, n_mels=64, n_fft=1024, hop_len=None):
 
 
 def pre_processing_audio(audio):
+    # Pad or truncate the signal to DURATION ms
     pad_audio = pad_trunc(audio, DURATION)
 
+    # Shift the signal by a random amount
     shift_audio = time_shift(pad_audio, SHIFT_PCT)
+
     # convert to spectrogram
     spectrogram = spectro_gram(shift_audio, n_mels=N_MELS, n_fft=N_FFT, hop_len=None)
 
@@ -97,10 +104,10 @@ class AudioDataset(torch.utils.data.Dataset):
 
         for root, dirs, files in os.walk(self.root):
             target = root.split(os.sep)[-1]
-            print(target)
+            logger.info(f'reading {target}')
             if target in self.all_labels:
                 for file in files:
-                    audio = open(os.path.join(root, file), self.sr)
+                    audio = open_audio_file(os.path.join(root, file), self.sr)
 
                     # convert to spectrogram
                     spectrogram, _ = pre_processing_audio(audio)
@@ -120,19 +127,13 @@ class AudioDataset(torch.utils.data.Dataset):
 
 def load_training_data():
     train_set = AudioDataset(TRAIN_DATA_DIR, train_labels, SAMPLE_RATE, 'train')
-    # 將train_set分为训练集和验证集
+    # Divide train_set into training set and validation set
     train_size = int(0.8 * len(train_set))
     val_size = len(train_set) - train_size
+    logging.info(f'train_size: {train_size}, val_size: {val_size}')
     train_set, val_set = torch.utils.data.random_split(train_set, [train_size, val_size])
 
     batch_size = BATCH_SIZE * GPU_NUMS
     train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True, num_workers=8)
     val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=batch_size, shuffle=True, num_workers=8)
     return train_loader, val_loader
-
-
-def load_test_data():
-    test_set = AudioDataset(TRAIN_DATA_DIR, train_labels, SAMPLE_RATE, 'test')
-    batch_size = BATCH_SIZE * GPU_NUMS
-    test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=batch_size, shuffle=True, num_workers=8)
-    return test_loader
